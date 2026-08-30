@@ -1,5 +1,4 @@
-
-⚙<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -363,6 +362,30 @@
     .header h1 { font-size: 1.1rem; }
     .modal { padding: 20px; width: 95%; }
   }
+
+  .status-bar { position:relative;z-index:1;padding:8px 20px;display:flex;align-items:center;gap:18px;flex-shrink:0;border-bottom:1px solid var(--border);background:var(--surface);font-size:0.78rem;color:var(--text-dim); }
+  .status-bar .stat { display:flex;align-items:center;gap:5px; }
+  .status-bar .stat .icon { font-size:1rem; }
+  .status-bar .stat .val { color:var(--gold);font-weight:500; }
+  .msg.death { align-self:center;background:rgba(139,58,58,0.2);border:1px solid var(--danger);color:#d4a0a0;text-align:center;max-width:90%;padding:16px;font-size:0.9rem; }
+  .btn.small { padding:3px 8px;font-size:0.7rem; }
+  .modal.wide { max-width:680px; }
+  .encyclopedia { display:flex;gap:0;min-height:350px; }
+  .encyclopedia .loc-list { width:140px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;padding-right:8px; }
+  .encyclopedia .loc-item { padding:8px 10px;cursor:pointer;border-radius:4px;font-size:0.82rem;color:var(--text-dim);transition:all 0.15s;margin-bottom:2px; }
+  .encyclopedia .loc-item:hover { background:var(--surface2);color:var(--text); }
+  .encyclopedia .loc-item.active { background:var(--surface2);color:var(--gold);border-left:2px solid var(--gold-dim); }
+  .encyclopedia .loc-item.locked { opacity:0.4;font-style:italic; }
+  .encyclopedia .loc-detail { flex:1;padding:0 16px;overflow-y:auto;font-size:0.84rem;line-height:1.8; }
+  .encyclopedia .loc-detail h4 { color:var(--gold);font-weight:400;margin-bottom:8px;font-size:1rem; }
+  .encyclopedia .loc-detail .tag { display:inline-block;padding:1px 7px;border-radius:3px;font-size:0.7rem;margin-right:4px;margin-bottom:4px; }
+  .encyclopedia .loc-detail .tag.npc { background:rgba(184,115,60,0.2);color:#e0c8a8;border:1px solid rgba(184,115,60,0.3); }
+  .encyclopedia .loc-detail .tag.item { background:rgba(90,158,90,0.15);color:#a0d0a0;border:1px solid rgba(90,158,90,0.3); }
+  .encyclopedia .loc-detail .tag.danger { background:rgba(139,58,58,0.2);color:#d4a0a0;border:1px solid rgba(139,58,58,0.3); }
+  .inv-chip { font-size:0.7rem;padding:1px 8px;border-radius:10px;background:rgba(200,169,110,0.1);border:1px solid rgba(200,169,110,0.2);color:var(--gold-dim); }
+  .inv-chip.empty { color:var(--text-dim);font-style:italic;border-style:dashed; }
+  @media (max-width:600px) { .status-bar { gap:10px;font-size:0.72rem;padding:6px 14px; } .encyclopedia { flex-direction:column; } .encyclopedia .loc-list { width:100%;flex-direction:row;display:flex;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--border);padding-bottom:8px;gap:2px; } .encyclopedia .loc-detail { padding:12px 0 0 0; } }
+
 </style>
 </head>
 <body>
@@ -376,8 +399,19 @@
       <span class="status-dot off" id="statusDot"></span>
       <span id="statusText">离线</span>
     </span>
-    <button class="btn" onclick="openSettings()" title="设置">⚙</button>
+    <button class="btn small" onclick="openEncyclopedia()" title="世界百科">📖</button>
+    <button class="btn small" onclick="openSettings()" title="设置">⚙</button>
+    <button class="btn small" onclick="saveGame()" title="存档">💾</button>
+    <button class="btn small" onclick="loadGame()" title="读档">📂</button>
   </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar" id="statusBar">
+  <span class="stat"><span class="icon">📅</span>第 <span class="val" id="statDay">1</span> 天</span>
+  <span class="stat"><span class="icon">📍</span><span class="val" id="statLocation">旅馆大堂</span></span>
+  <span class="stat"><span class="icon">🎒</span><span id="statInventory"><span class="inv-chip empty">空空如也</span></span>
+  </span>
 </div>
 
 <!-- Chat area -->
@@ -394,6 +428,18 @@
 <div class="input-bar">
   <textarea id="userInput" placeholder="输入你的行动…" rows="1" disabled></textarea>
   <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>▶</button>
+</div>
+
+<!-- Encyclopedia Modal -->
+<div class="modal-overlay hidden" id="encyclopediaModal">
+  <div class="modal wide">
+    <h2>📖 世界百科</h2>
+    <div class="encyclopedia">
+      <div class="loc-list" id="locList"></div>
+      <div class="loc-detail" id="locDetail"></div>
+    </div>
+    <div class="btn-row"><button class="btn" onclick="closeEncyclopedia()">关闭</button></div>
+  </div>
 </div>
 
 <!-- Settings Modal -->
@@ -426,348 +472,6 @@
   </div>
 </div>
 
-<script>
-// ============ STATE ============
-let apiKey    = "";
-let model     = "deepseek-ai/DeepSeek-V3";
-let systemPrompt = "";
-let messages  = []; // conversation history for AI
-let isLoading = false;
-let isConfigured = false;
-
-// ============ DEFAULT SYSTEM PROMPT ============
-const DEFAULT_SYSTEM_PROMPT = `你是一个文字冒险游戏的叙述者（Game Master），游戏名为《昨日旅馆》。
-
-## 世界观
-- 你是一座破败老旧旅馆的"意识"。这座旅馆建于民国时期，位于一座常年阴雨的山中小镇边缘。
-- 旅馆共三层，木质结构，走廊深长，房间门牌模糊不清。墙壁渗出水渍，地板偶尔发出无人踩踏的吱呀声。
-- 旅馆中住着一些奇怪的"常住客"——但他们似乎不是活着的人。
-- 时间的流速在这里是不正常的。昨天可能是十年前，也可能是明天。
-
-## 你的角色
-- 你以旅馆的视角叙述，带有淡淡的民国文风，优美但阴郁，偶尔透出一丝诡谲的诗意。
-- 你描述环境、气味、声音、光线、温度——让玩家感到身临其境。
-- 你控制 NPC（旅馆中的住客），他们各有自己的秘密和故事。
-- 当玩家做出行动时，你描述结果，推动剧情发展。
-- 保持悬疑和神秘的氛围，但不要过早揭示所有真相。让玩家慢慢探索。
-
-## 叙事规则
-- 每次回复控制在 200-400 字，让玩家有继续行动的欲望。
-- 始终使用第二人称"你"来称呼玩家。
-- 每段回复结尾不要直接问"你要怎么做"，而是用环境描写或情境自然地让玩家想继续。
-- 当玩家做出危险或愚蠢的举动时，给出相应的后果。
-- 旅馆中隐藏着一个核心秘密——关于旅馆本身、关于那些住客、关于"昨日"的含义。让玩家在探索中逐渐接近真相。
-
-## 开场
-玩家在一个雨夜抵达旅馆。请用一段优美阴郁的文字，描述玩家推门而入的第一印象。`;
-
-// ============ INIT ============
-function init() {
-  // Load saved settings from localStorage
-  apiKey    = localStorage.getItem("yesterday_hotel_api_key") || "";
-  model     = localStorage.getItem("yesterday_hotel_model") || "deepseek-ai/DeepSeek-V3";
-  systemPrompt = localStorage.getItem("yesterday_hotel_system_prompt") || "";
-
-  if (apiKey) {
-    document.getElementById("apiKeyInput").value = apiKey;
-    document.getElementById("modelSelect").value = model;
-    document.getElementById("systemPromptInput").value = systemPrompt;
-    connectAPI();
-  }
-
-  // Enter key to send
-  document.getElementById("userInput").addEventListener("keydown", function(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-
-  // Auto-resize textarea
-  document.getElementById("userInput").addEventListener("input", function() {
-    this.style.height = "auto";
-    this.style.height = Math.min(this.scrollHeight, 120) + "px";
-  });
-}
-
-// ============ SETTINGS MODAL ============
-function openSettings() {
-  document.getElementById("settingsModal").classList.remove("hidden");
-  document.getElementById("apiKeyInput").value = apiKey;
-  document.getElementById("modelSelect").value = model;
-  document.getElementById("systemPromptInput").value = systemPrompt;
-}
-
-function closeSettings() {
-  document.getElementById("settingsModal").classList.add("hidden");
-}
-
-function saveSettings() {
-  apiKey    = document.getElementById("apiKeyInput").value.trim();
-  model     = document.getElementById("modelSelect").value;
-  systemPrompt = document.getElementById("systemPromptInput").value.trim();
-
-  if (!apiKey) {
-    alert("请输入硅基流动 API Key");
-    return;
-  }
-
-  localStorage.setItem("yesterday_hotel_api_key", apiKey);
-  localStorage.setItem("yesterday_hotel_model", model);
-  localStorage.setItem("yesterday_hotel_system_prompt", systemPrompt);
-
-  closeSettings();
-  connectAPI();
-}
-
-// ============ API CONNECTION ============
-function connectAPI() {
-  isConfigured = true;
-  document.getElementById("statusDot").className = "status-dot on";
-  document.getElementById("statusText").textContent = "就绪";
-  document.getElementById("modelBadge").textContent = model.split("/").pop();
-  document.getElementById("userInput").disabled = false;
-  document.getElementById("sendBtn").disabled = false;
-  document.getElementById("userInput").focus();
-}
-
-// ============ SEND MESSAGE ============
-async function sendMessage() {
-  if (isLoading || !isConfigured) return;
-
-  const inputEl = document.getElementById("userInput");
-  const userText = inputEl.value.trim();
-  if (!userText) return;
-
-  // Check API key
-  if (!apiKey) {
-    addSystemMsg("⚠ 请先在设置中填入硅基流动 API Key");
-    openSettings();
-    return;
-  }
-
-  // Add player message to UI
-  addPlayerMsg(userText);
-  inputEl.value = "";
-  inputEl.style.height = "auto";
-
-  // Add to conversation history
-  messages.push({ role: "user", content: userText });
-
-  // Show loading
-  isLoading = true;
-  document.getElementById("sendBtn").disabled = true;
-  const loadingEl = addLoadingMsg();
-
-  try {
-    const response = await callAI(messages);
-    removeLoading(loadingEl);
-
-    // Add AI response to UI and history
-    addNarratorMsg(response);
-    messages.push({ role: "assistant", content: response });
-
-    // Trim history if too long (keep system prompt + last 20 exchanges)
-    trimHistory();
-
-  } catch (err) {
-    removeLoading(loadingEl);
-    addSystemMsg("⚠ 连接失败：" + err.message);
-    console.error(err);
-  }
-
-  isLoading = false;
-  document.getElementById("sendBtn").disabled = false;
-  document.getElementById("userInput").focus();
-}
-
-// ============ CALL SILICONFLOW API ============
-async function callAI(conversation) {
-  const effectiveSystem = systemPrompt || DEFAULT_SYSTEM_PROMPT;
-
-  const body = {
-    model: model,
-    messages: [
-      { role: "system", content: effectiveSystem },
-      ...conversation
-    ],
-    temperature: 0.9,
-    max_tokens: 800,
-    top_p: 0.95,
-    frequency_penalty: 0.3,
-    presence_penalty: 0.3
-  };
-
-  const res = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + apiKey
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    const errMsg = errData.error?.message || errData.message || res.statusText;
-    throw new Error(`${res.status}: ${errMsg}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || "";
-  return content;
-}
-
-// ============ HISTORY MANAGEMENT ============
-function trimHistory() {
-  // Keep last 30 messages (15 exchanges)
-  const maxMessages = 30;
-  if (messages.length > maxMessages) {
-    messages = messages.slice(messages.length - maxMessages);
-  }
-}
-
-// ============ START GAME ============
-async function startGame() {
-  if (!isConfigured) {
-    addSystemMsg("⚠ 请先在设置中填入硅基流动 API Key");
-    openSettings();
-    return;
-  }
-  if (!apiKey) {
-    addSystemMsg("⚠ 请先在设置中填入硅基流动 API Key");
-    openSettings();
-    return;
-  }
-
-  // Clear UI and history
-  document.getElementById("chatArea").innerHTML = "";
-  messages = [];
-
-  addSystemMsg("🏨 雨夜，你推开了昨日旅馆的门…");
-
-  isLoading = true;
-  document.getElementById("sendBtn").disabled = true;
-  const loadingEl = addLoadingMsg();
-
-  try {
-    // Send the opening scene request
-    const effectiveSystem = systemPrompt || DEFAULT_SYSTEM_PROMPT;
-    const body = {
-      model: model,
-      messages: [
-        { role: "system", content: effectiveSystem },
-        { role: "user", content: "（游戏开始。请用一段优美阴郁的文字，描述玩家在雨夜抵达旅馆、推门而入的第一印象。从旅馆的视角来叙述。）" }
-      ],
-      temperature: 0.9,
-      max_tokens: 800,
-      top_p: 0.95,
-      frequency_penalty: 0.3,
-      presence_penalty: 0.3
-    };
-
-    const res = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + apiKey
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(`${res.status}: ${errData.error?.message || res.statusText}`);
-    }
-
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content || "";
-
-    removeLoading(loadingEl);
-    addNarratorMsg(content);
-    messages.push({ role: "assistant", content: content });
-
-  } catch (err) {
-    removeLoading(loadingEl);
-    addSystemMsg("⚠ 连接失败：" + err.message);
-  }
-
-  isLoading = false;
-  document.getElementById("sendBtn").disabled = false;
-  document.getElementById("userInput").focus();
-}
-
-// ============ UI HELPERS ============
-function addNarratorMsg(text) {
-  const div = document.createElement("div");
-  div.className = "msg narrator";
-  div.innerHTML = '<div class="role-label">🏨 旅馆</div>' + escapeHtml(text);
-  document.getElementById("chatArea").appendChild(div);
-  scrollToBottom();
-  return div;
-}
-
-function addPlayerMsg(text) {
-  const div = document.createElement("div");
-  div.className = "msg player";
-  div.innerHTML = '<div class="role-label">👤 你</div>' + escapeHtml(text);
-  document.getElementById("chatArea").appendChild(div);
-  scrollToBottom();
-  return div;
-}
-
-function addSystemMsg(text) {
-  const div = document.createElement("div");
-  div.className = "msg system";
-  div.textContent = text;
-  document.getElementById("chatArea").appendChild(div);
-  scrollToBottom();
-  return div;
-}
-
-function addLoadingMsg() {
-  const div = document.createElement("div");
-  div.className = "msg loading";
-  div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-  document.getElementById("chatArea").appendChild(div);
-  scrollToBottom();
-  return div;
-}
-
-function removeLoading(el) {
-  if (el && el.parentNode) {
-    el.parentNode.removeChild(el);
-  }
-}
-
-function scrollToBottom() {
-  const area = document.getElementById("chatArea");
-  requestAnimationFrame(() => {
-    area.scrollTop = area.scrollHeight;
-  });
-}
-
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// ============ STARTUP ============
-init();
-
-// Expose startGame globally
-window.startGame = startGame;
-
-// Show start button if configured
-if (apiKey) {
-  setTimeout(() => {
-    const chatArea = document.getElementById("chatArea");
-    chatArea.innerHTML = "";
-    addSystemMsg("🏨 已连接到硅基流动 API");
-    addSystemMsg('准备好了吗？<br><button class="btn primary" onclick="startGame()" style="margin-top:12px;">▶ 开始游戏</button>');
-  }, 100);
-}
-</script>
+<script src="game.js"></script>
 </body>
 </html>
