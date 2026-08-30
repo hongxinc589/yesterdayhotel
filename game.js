@@ -2,7 +2,7 @@ const DEFAULT_SYSTEM_PROMPT = `你是文字冒险游戏《昨日旅馆》的叙�
 
 ## 禁止事项（必须严格遵守）
 - 可以基于场景速查合理扩展感官细节（气味、光影、声音、物品质感、人物微表情），但禁止编造新的核心设定（新NPC、新地名、新道具、重大历史事件）。场景中没有描写的物件不要凭空添加。
-- NPC可以简短回应玩家的对话（1-2句话），但行为不得超出角色设定：玛丽安娜只在前台出现、老乔只低语不对话、镇长只答三句固定话、花店店主永远沉默。不要让NPC主动推进剧情。
+- 当玩家直接与NPC交谈或询问NPC时，NPC必须简短回应（1-2句话）。行为不得超出角色设定：玛丽安娜只在前台出现、老乔只低语不对话、镇长只答三句固定话、花店店主永远沉默。不要让NPC主动推进剧情。
 - 玛丽安娜在玩家首次入住时必须自然地告知五条基本规矩（①晚上10点前回旅馆 ②跟居民要回礼、接点心 ③别进无门牌号小巷 ④看到和自己一样的人低头走开 ⑤满三天才能出牌坊）。告知方式融入对话，像叮嘱远道而来的客人，不要罗列清单。
 - 禁止提前揭示旅馆、住客、"昨日"的核心秘密（镜子厂版本号、镇长是程序、镇子是模拟）
 - 禁止主动提示任何行为会导致死亡或危险后果
@@ -552,9 +552,18 @@ function processNPCDialogue(input) {
       modifyAffinity(1, "礼貌问候");
       return getMaryAnnDialogue("greetD1");
     }
+      // 兜底：只要在旅馆大堂提到玛丽安娜就给回应
+    if (t.indexOf("玛丽安娜") >= 0 || t.indexOf("前台") >= 0 || t.indexOf("老板娘") >= 0) {
+      var fallbacks = [
+        "玛丽安娜抬起头看了你一眼，微微一笑：'有什么可以帮你的吗？'",
+        "玛丽安娜放下手里的笔：'您需要什么？'",
+        "玛丽安娜的目光从登记簿上移向你：'是有什么想问的吗？'"
+      ];
+      return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    }
   }
 
-  // 老乔对话
+// 老乔对话
   if (gameState.location.indexOf("小巷") >= 0 && (t.indexOf("听") >= 0 || t.indexOf("老乔") >= 0 || t.indexOf("他说") >= 0 || t.indexOf("嘀咕") >= 0 || t.indexOf("自言自语") >= 0 || t.indexOf("低语") >= 0)) {
     if (!gameState.flags.heardJoeD1 && gameState.day === 1) { gameState.flags.heardJoeD1 = true; return npcDialogues.oldJoe[1]; }
     if (!gameState.flags.heardJoeD2 && gameState.day === 2) { gameState.flags.heardJoeD2 = true; return npcDialogues.oldJoe[2]; }
