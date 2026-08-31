@@ -724,7 +724,7 @@ async function sendMessage() {
       model: model, temperature: 0.5, frequency_penalty: 0.6, max_tokens: 800,
       messages: [{role:"system", content: es + sc}].concat(messages.slice(-30))
     };
-    var res = await fetch("https://api.siliconflow.cn/v1/chat/completions", {
+    var res = await fetch(apiEndpoint || "https://api.siliconflow.cn/v1/chat/completions", {
       method: "POST", headers: {"Content-Type":"application/json", "Authorization":"Bearer " + apiKey}, body: JSON.stringify(body)
     });
     if (!res.ok) { var ed = await res.json().catch(function(){return{};}); throw new Error(res.status + ": " + (ed.error && ed.error.message)); }
@@ -761,7 +761,7 @@ function startGame() {
   addSystemMsg("提示：你可以自由输入你想做的事。输入「!背包」查看道具，「!状态」查看进度，「!结局」查看结局条件。");
   isLoading = true; var sb = document.getElementById("sendBtn"); if (sb) sb.disabled = true;
   var le = addLoadingMsg();
-  fetch("https://api.siliconflow.cn/v1/chat/completions", {
+  fetch(apiEndpoint || "https://api.siliconflow.cn/v1/chat/completions", {
     method: "POST", headers: {"Content-Type":"application/json", "Authorization":"Bearer " + apiKey},
     body: JSON.stringify({ model: model, temperature: 0.5, frequency_penalty: 0.6, max_tokens: 800, messages: messages })
   }).then(function(res) {
@@ -850,7 +850,7 @@ function updateStatusBar() {
 function trimHistory() { if (messages.length > 40) messages = messages.slice(messages.length - 40); }
 
 // ═══ State Vars ═══
-let apiKey = "", model = "deepseek-ai/DeepSeek-V3", systemPrompt = "";
+let apiKey = "", model = "deepseek-ai/DeepSeek-V3", systemPrompt = "", apiEndpoint = "";
 let messages = [], isLoading = false, isConfigured = false, gameStarted = false;
 
 // ═══ Init ═══
@@ -858,10 +858,12 @@ function init() {
   apiKey = localStorage.getItem("yh_api_key") || "";
   model = localStorage.getItem("yh_model") || "deepseek-ai/DeepSeek-V3";
   systemPrompt = localStorage.getItem("yh_system_prompt") || "";
+  apiEndpoint = localStorage.getItem("yh_api_endpoint") || "";
   if (apiKey) {
     try { document.getElementById("apiKeyInput").value = apiKey; } catch(e) {}
     try { document.getElementById("modelSelect").value = model; } catch(e) {}
     try { document.getElementById("systemPromptInput").value = systemPrompt; } catch(e) {}
+    try { document.getElementById("apiEndpointInput").value = apiEndpoint; } catch(e) {}
     connectAPI(); showStartButton();
   }
   var ui = document.getElementById("userInput");
@@ -887,6 +889,7 @@ function openSettings() {
   try { document.getElementById("apiKeyInput").value = apiKey; } catch(e) {}
   try { document.getElementById("modelSelect").value = model; } catch(e) {}
   try { document.getElementById("systemPromptInput").value = systemPrompt; } catch(e) {}
+  try { document.getElementById("apiEndpointInput").value = apiEndpoint; } catch(e) {}
   var m = document.getElementById("settingsModal"); if (m) m.classList.remove("hidden");
 }
 function closeSettings() { var m = document.getElementById("settingsModal"); if (m) m.classList.add("hidden"); }
@@ -894,10 +897,12 @@ function saveSettings() {
   apiKey = document.getElementById("apiKeyInput").value.trim();
   model = document.getElementById("modelSelect").value;
   systemPrompt = document.getElementById("systemPromptInput").value.trim();
+  apiEndpoint = document.getElementById("apiEndpointInput").value.trim();
   if (!apiKey) { alert("请输入硅基流动 API Key"); return; }
   localStorage.setItem("yh_api_key", apiKey);
   localStorage.setItem("yh_model", model);
   localStorage.setItem("yh_system_prompt", systemPrompt);
+  localStorage.setItem("yh_api_endpoint", apiEndpoint);
   closeSettings(); connectAPI(); showStartButton();
 }
 function connectAPI() {

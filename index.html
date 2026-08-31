@@ -419,7 +419,7 @@
   <div class="msg system">
     <div style="font-size:2rem;margin-bottom:8px;">🏨</div>
     欢迎来到昨日旅馆。<br>
-    请先在右上角 <b>⚙ 设置</b> 中填入你的硅基流动 API Key，<br>
+    请先在右上角 <b>⚙ 设置</b> 中填入你的 API Key，<br>
     然后开始你的冒险。
   </div>
 </div>
@@ -447,19 +447,25 @@
   <div class="modal">
     <h2>⚙ 设置</h2>
     <div class="form-group">
-      <label>硅基流动 API Key</label>
+      <label>API Key</label>
       <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx">
-      <div class="hint">在 <a href="https://cloud.siliconflow.cn" target="_blank" style="color:var(--gold-dim);">cloud.siliconflow.cn</a> 注册后获取</div>
+      <div class="hint">支持硅基流动、DeepSeek 官方、OpenAI 等兼容 API。<br>在硅基流动 <a href="https://cloud.siliconflow.cn" target="_blank" style="color:var(--gold-dim);">cloud.siliconflow.cn</a> 注册免费获取。</div>
     </div>
     <div class="form-group">
       <label>模型选择</label>
       <select id="modelSelect">
         <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3（推荐 · 中文强）</option>
+        <option value="deepseek-ai/DeepSeek-V4-Flash">DeepSeek V4 Flash（快速 · 中文强）</option>
         <option value="Qwen/Qwen3-235B-A22B">Qwen3 235B（中文旗舰）</option>
         <option value="Qwen/Qwen2.5-72B-Instruct">Qwen2.5 72B</option>
         <option value="deepseek-ai/DeepSeek-R1">DeepSeek R1（深度推理）</option>
         <option value="Qwen/Qwen2.5-7B-Instruct">Qwen2.5 7B（快速廉价）</option>
-      </select>
+      
+    </div>
+    <div class="form-group">
+      <label>API 端点</label>
+      <input type="text" id="apiEndpointInput" placeholder="https://api.siliconflow.cn/v1/chat/completions">
+      <div class="hint">默认硅基流动，可改为其他兼容 OpenAI 格式的端点</div></select>
     </div>
     <div class="form-group">
       <label>自定义系统提示词（可选）</label>
